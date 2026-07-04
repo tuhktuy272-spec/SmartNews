@@ -1,0 +1,18 @@
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+storage/logs/*
+!storage/logs/.gitkeep
+
+# Environment files
+.env
+
+# Temporary files
+*.tmp
+*.log
