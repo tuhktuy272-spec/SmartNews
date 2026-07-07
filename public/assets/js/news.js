@@ -1,45 +1,12 @@
-const API_BASE = 'api.php?action=';
+const BASE_URL = (window.SMARTNEWS_BASE_URL || '').replace(/\/$/, '');
+const API_BASE = `${BASE_URL}/api.php?action=`;
 
 const state = {
   categories: [],
   featuredArticles: [],
   newArticles: [],
   recommendations: [],
-  userState: {
-    isLoggedIn: false,
-    userId: null,
-    bookmarkIds: [],
-    likedArticleIds: []
-  }
-};
-
-const fallbackData = {
-  categories: [
-    { title: 'Công nghệ', description: 'Tin tức công nghệ, sản phẩm mới, xu hướng.' },
-    { title: 'Giải trí', description: 'Phim ảnh, âm nhạc, sao và sự kiện.' },
-    { title: 'Kinh doanh', description: 'Thị trường, doanh nghiệp và đầu tư.' },
-    { title: 'Thể thao', description: 'Trực tiếp trận đấu, bảng xếp hạng, bình luận.' },
-    { title: 'Sức khỏe', description: 'Lối sống, dinh dưỡng và chăm sóc sức khỏe.' },
-    { title: 'Giáo dục', description: 'Học tập, tuyển sinh, hướng nghiệp.' }
-  ],
-  featuredArticles: [
-    { title: 'AI và tương lai báo chí số', summary: 'Cách AI thay đổi sản xuất nội dung và trải nghiệm đọc tin.', link: 'article.php?id=ai-va-tuong-lai-bao-chi-so' },
-    { title: 'Thiết kế giao diện tin tức chuyên nghiệp', summary: 'Mẹo bố cục, màu sắc và trải nghiệm người đọc cho trang tin.', link: 'article.php?id=thiet-ke-giao-dien-tin-tuc-chuyen-nghiep' },
-    { title: 'Tối ưu tốc độ trang tin tức', summary: 'Các kỹ thuật front-end giúp trang tin tải nhanh và ổn định.', link: 'article.php?id=toi-uu-toc-do-trang-tin-tuc' }
-  ],
-  newArticles: [
-    { title: 'Xu hướng tìm kiếm 2026', summary: 'Những chủ đề và từ khoá được độc giả tìm kiếm nhiều nhất.', link: 'article.php?id=xu-huong-tim-kiem-2026' },
-    { title: 'Cách viết tiêu đề thu hút', summary: 'Kỹ thuật tạo tiêu đề khiến người đọc muốn click ngay.', link: 'article.php?id=cach-viet-tieu-de-thu-hut' },
-    { title: 'Phân tích hành vi người đọc', summary: 'Hiểu thói quen đọc để tối ưu độ tương tác và retention.', link: 'article.php?id=phan-tich-hanh-vi-nguoi-doc' },
-    { title: 'Làm nội dung cho mobile', summary: 'Thiết kế và định dạng nội dung phù hợp với người dùng di động.', link: 'article.php?id=lam-noi-dung-cho-mobile' },
-    { title: 'Bảo mật trang tin tức', summary: 'Các biện pháp bảo vệ dữ liệu người dùng an toàn.', link: 'article.php?id=bao-mat-trang-tin-tuc' },
-    { title: 'Xây dựng hệ thống đề xuất', summary: 'Giới thiệu logic gợi ý bài viết dựa trên hành vi đọc.', link: 'article.php?id=xay-dung-he-thong-de-xuat' }
-  ],
-  recommendations: [
-    { title: 'Cách viết tiêu đề thu hút', summary: 'Kỹ thuật tạo tiêu đề khiến người đọc muốn click ngay.', link: 'article.php?id=cach-viet-tieu-de-thu-hut' },
-    { title: 'Làm nội dung cho mobile', summary: 'Định dạng và bố cục bài viết trên điện thoại.', link: 'article.php?id=lam-noi-dung-cho-mobile' },
-    { title: 'Xây dựng hệ thống đề xuất', summary: 'Gợi ý bài viết cá nhân hóa giúp người đọc quay lại.', link: 'article.php?id=xay-dung-he-thong-de-xuat' }
-  ]
+  selectedCategoryId: null
 };
 
 async function fetchJSON(endpoint, options = {}) {
@@ -60,30 +27,55 @@ async function fetchJSON(endpoint, options = {}) {
   }
 }
 
-function normalizeArrayResponse(response, fallback, fallbackKey) {
+function normalizeArrayResponse(response, key) {
   if (Array.isArray(response)) return response;
+
   if (response && typeof response === 'object') {
-    if (Array.isArray(response[fallbackKey])) return response[fallbackKey];
+    if (Array.isArray(response[key])) return response[key];
     if (Array.isArray(response.data)) return response.data;
     if (Array.isArray(response.items)) return response.items;
   }
-  return fallback;
+
+  return [];
+}
+
+function getCategoryIdFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const categoryId = params.get('category');
+
+  return categoryId && /^\d+$/.test(categoryId) ? categoryId : null;
+}
+
+function getSelectedCategory() {
+  if (!state.selectedCategoryId) return null;
+
+  return state.categories.find(
+    category => String(category.id) === String(state.selectedCategoryId)
+  ) || null;
 }
 
 async function getCategories() {
   const response = await fetchJSON('categories');
-  return normalizeArrayResponse(response, fallbackData.categories, 'categories');
+
+  return normalizeArrayResponse(response, 'categories');
 }
 
 async function getArticles(section) {
-  const response = await fetchJSON(`articles&section=${section}`);
-  const fallback = section === 'featured' ? fallbackData.featuredArticles : fallbackData.newArticles;
-  return normalizeArrayResponse(response, fallback, 'articles');
+  let action = `articles&section=${encodeURIComponent(section)}`;
+
+  if (state.selectedCategoryId) {
+    action += `&category_id=${encodeURIComponent(state.selectedCategoryId)}`;
+  }
+
+  const response = await fetchJSON(action);
+
+  return normalizeArrayResponse(response, 'articles');
 }
 
-async function getRecommendations(userId) {
+async function getRecommendations() {
   const response = await fetchJSON('recommendations');
-  return normalizeArrayResponse(response, fallbackData.recommendations, 'recommendations');
+
+  return normalizeArrayResponse(response, 'recommendations');
 }
 
 function showSearchResults(query, items) {
@@ -95,36 +87,85 @@ function showSearchResults(query, items) {
 
   queryText.textContent = query;
   resultsSection.hidden = false;
+  resultsList.innerHTML = '';
 
   if (!Array.isArray(items) || items.length === 0) {
     resultsList.innerHTML = '<p class="empty-state">Không tìm thấy bài viết phù hợp.</p>';
+    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return;
   }
 
-  resultsList.innerHTML = '';
   items.forEach((item, index) => {
-    const card = document.createElement('article');
-    card.className = 'article-card reveal';
-    card.style.transitionDelay = `${index * 60}ms`;
-    card.innerHTML = `
-      <h3>${item.title}</h3>
-      <p>${item.summary || ''}</p>
-      ${item.link ? `<a class="text-link" href="${item.link}">Xem bài viết <span>→</span></a>` : ''}
-    `;
-    resultsList.appendChild(card);
+    resultsList.appendChild(createArticleCard(item, index, 'Xem bài viết'));
   });
+
+  initReveal();
+  resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function hideSearchResults() {
   const resultsSection = document.getElementById('search-results-section');
+
   if (resultsSection) {
     resultsSection.hidden = true;
   }
 }
 
+function createArticleCard(item, index, buttonText = 'Đọc tiếp') {
+  const card = document.createElement('article');
+
+  card.className = 'article-card reveal';
+  card.style.transitionDelay = `${index * 60}ms`;
+
+  const link = item.link || '';
+  const category = item.category_name ? `<span class="article-card-category">${escapeHTML(item.category_name)}</span>` : '';
+  const author = item.author ? `<span>${escapeHTML(item.author)}</span>` : '';
+
+  card.innerHTML = `
+    ${category}
+    <h3>${escapeHTML(item.title || 'Không có tiêu đề')}</h3>
+    <p>${escapeHTML(item.description || item.summary || '')}</p>
+    <div class="article-card-meta">${author}</div>
+    ${link ? `<a class="text-link" href="${escapeHTML(link)}">${buttonText} <span>→</span></a>` : ''}
+  `;
+
+  if (link) {
+    card.style.cursor = 'pointer';
+
+    card.addEventListener('click', (event) => {
+      if (event.target.closest('a')) return;
+      window.location.href = link;
+    });
+  }
+
+  return card;
+}
+
+function createCategoryCard(item, index) {
+  const card = document.createElement('a');
+
+  card.className = 'category-card reveal';
+  card.style.transitionDelay = `${index * 60}ms`;
+  card.href = item.link || '#new-articles';
+
+  const countText = Number(item.published_count || 0) > 0
+    ? `${item.published_count} bài viết`
+    : 'Xem bài viết';
+
+  card.innerHTML = `
+    <h3>${escapeHTML(item.title || 'Chuyên mục')}</h3>
+    <p>${escapeHTML(item.description || '')}</p>
+    <span class="text-link">Xem chuyên mục · ${countText} <span>→</span></span>
+  `;
+
+  return card;
+}
+
 function renderCards(containerId, items) {
   const container = document.getElementById(containerId);
+
   if (!container) return;
+
   container.innerHTML = '';
 
   if (!Array.isArray(items) || items.length === 0) {
@@ -133,68 +174,104 @@ function renderCards(containerId, items) {
   }
 
   items.forEach((item, index) => {
-    const card = document.createElement('article');
-    card.className = containerId === 'categories-list' ? 'category-card reveal' : 'article-card reveal';
-    card.style.transitionDelay = `${index * 60}ms`;
-    card.innerHTML = `
-      <h3>${item.title}</h3>
-      <p>${item.description || item.summary || ''}</p>
-      ${item.link ? `<a class="text-link" href="${item.link}">Đọc tiếp <span>→</span></a>` : ''}
-    `;
-    container.appendChild(card);
+    if (containerId === 'categories-list') {
+      container.appendChild(createCategoryCard(item, index));
+      return;
+    }
+
+    container.appendChild(createArticleCard(item, index, 'Đọc tiếp'));
   });
+
+  initReveal();
 }
 
-function renderSearchResults(items) {
-  if (!Array.isArray(items)) return;
-  const mapped = items.map(item => ({
-    title: item.title,
-    summary: item.summary,
-    link: item.link || `article.php?id=${item.slug || item.id}`
-  }));
-  return mapped;
+function updateCategoryHeading() {
+  const selectedCategory = getSelectedCategory();
+
+  if (!selectedCategory) return;
+
+  const featuredTitle = document.querySelector('#featured h2');
+  const newTitle = document.querySelector('#new-articles h2');
+  const recommendationTitle = document.querySelector('.recommendations h2');
+  const categorySection = document.getElementById('categories');
+
+  if (featuredTitle) {
+    featuredTitle.textContent = `Bài nổi bật trong chuyên mục ${selectedCategory.title}`;
+  }
+
+  if (newTitle) {
+    newTitle.textContent = `Bài viết trong chuyên mục ${selectedCategory.title}`;
+  }
+
+  if (recommendationTitle) {
+    recommendationTitle.textContent = 'Những bài viết mới nhất khác';
+  }
+
+  if (categorySection) {
+    const info = document.createElement('div');
+    info.className = 'container reveal';
+    info.innerHTML = `
+      <div class="category-selected-notice">
+        Đang xem chuyên mục <strong>${escapeHTML(selectedCategory.title)}</strong>.
+        <a class="text-link" href="${BASE_URL}/index.php#categories">Xem tất cả chuyên mục</a>
+      </div>
+    `;
+    categorySection.insertAdjacentElement('beforebegin', info);
+  }
 }
 
 async function loadHomePage() {
-  const [categories, featuredArticles, newArticles, recommendations] = await Promise.all([
-    getCategories(),
+  state.selectedCategoryId = getCategoryIdFromURL();
+
+  const categories = await getCategories();
+  state.categories = categories;
+
+  const [featuredArticles, newArticles, recommendations] = await Promise.all([
     getArticles('featured'),
     getArticles('new'),
     getRecommendations()
   ]);
 
-  state.categories = categories;
   state.featuredArticles = featuredArticles;
   state.newArticles = newArticles;
   state.recommendations = recommendations;
+
+  updateCategoryHeading();
 
   renderCards('categories-list', state.categories);
   renderCards('featured-list', state.featuredArticles);
   renderCards('new-list', state.newArticles);
   renderCards('recommendation-list', state.recommendations);
+
   hideSearchResults();
 }
 
 async function searchArticles(query) {
   const response = await fetchJSON(`search&q=${encodeURIComponent(query)}`);
-  if (Array.isArray(response)) return response;
 
-  const normalized = query.trim().toLowerCase();
-  return [...state.featuredArticles, ...state.newArticles].filter(item => {
-    return item.title.toLowerCase().includes(normalized) || item.summary.toLowerCase().includes(normalized);
-  });
+  return normalizeArrayResponse(response, 'articles');
 }
 
 function filterArticles(query) {
-  if (!query.trim()) {
+  const cleanQuery = String(query || '').trim();
+
+  if (!cleanQuery) {
     hideSearchResults();
     return;
   }
 
-  searchArticles(query).then(results => {
-    const mapped = renderSearchResults(results);
-    showSearchResults(query, mapped);
-    initReveal();
+  const resultsList = document.getElementById('search-results-list');
+  const resultsSection = document.getElementById('search-results-section');
+  const queryText = document.getElementById('search-query-text');
+
+  if (resultsSection && queryText && resultsList) {
+    queryText.textContent = cleanQuery;
+    resultsSection.hidden = false;
+    resultsList.innerHTML = '<p class="empty-state">Đang tìm kiếm...</p>';
+  }
+
+  searchArticles(cleanQuery).then(results => {
+    showSearchResults(cleanQuery, results);
   });
 }
 
@@ -202,13 +279,24 @@ function initTheme() {
   const storedTheme = localStorage.getItem('tintuc-theme');
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const theme = storedTheme || (prefersDark ? 'dark' : 'light');
+
   document.body.setAttribute('data-theme', theme);
+
   const icon = document.querySelector('.theme-toggle-icon');
-  if (icon) icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+
+  if (icon) {
+    icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+  }
 }
 
 function initReveal() {
-  const elements = document.querySelectorAll('.reveal');
+  const elements = document.querySelectorAll('.reveal:not(.is-visible)');
+
+  if (!('IntersectionObserver' in window)) {
+    elements.forEach(element => element.classList.add('is-visible'));
+    return;
+  }
+
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
@@ -216,7 +304,7 @@ function initReveal() {
         observer.unobserve(entry.target);
       }
     });
-  }, { threshold: 0.15 });
+  }, { threshold: 0.1 });
 
   elements.forEach(element => observer.observe(element));
 }
@@ -227,8 +315,14 @@ function initScrollEffects() {
 
   window.addEventListener('scroll', () => {
     const scrollY = window.scrollY;
-    if (ambient) ambient.style.transform = `translate3d(0, ${scrollY * 0.08}px, 0)`;
-    if (backToTop) backToTop.classList.toggle('is-visible', scrollY > 500);
+
+    if (ambient) {
+      ambient.style.transform = `translate3d(0, ${scrollY * 0.08}px, 0)`;
+    }
+
+    if (backToTop) {
+      backToTop.classList.toggle('is-visible', scrollY > 500);
+    }
   });
 
   backToTop?.addEventListener('click', () => {
@@ -237,63 +331,90 @@ function initScrollEffects() {
 }
 
 function initNavigation() {
-  const toggle = document.querySelector('.nav-toggle');
-  const nav = document.querySelector('.nav-links');
-  toggle?.addEventListener('click', () => {
-    const isOpen = nav.classList.toggle('is-open');
-    toggle.setAttribute('aria-expanded', String(isOpen));
+  const navToggle = document.querySelector('.nav-toggle');
+  const navLinks = document.querySelector('.nav-links');
+
+  navToggle?.addEventListener('click', () => {
+    const expanded = navToggle.getAttribute('aria-expanded') === 'true';
+
+    navToggle.setAttribute('aria-expanded', String(!expanded));
+    navLinks?.classList.toggle('is-open');
   });
 }
 
 function initThemeToggle() {
-  const button = document.querySelector('.theme-toggle');
-  button?.addEventListener('click', () => {
-    const currentTheme = document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    document.body.setAttribute('data-theme', currentTheme);
-    localStorage.setItem('tintuc-theme', currentTheme);
+  const toggle = document.querySelector('.theme-toggle');
+
+  toggle?.addEventListener('click', () => {
+    const current = document.body.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+
+    document.body.setAttribute('data-theme', next);
+    localStorage.setItem('tintuc-theme', next);
+
     const icon = document.querySelector('.theme-toggle-icon');
-    if (icon) icon.textContent = currentTheme === 'dark' ? '🌙' : '☀️';
+
+    if (icon) {
+      icon.textContent = next === 'dark' ? '🌙' : '☀️';
+    }
   });
 }
 
 function initLoadingState() {
-  document.body.classList.add('is-loading');
-  window.setTimeout(() => {
-    document.body.classList.remove('is-loading');
-  }, 700);
+  const loader = document.getElementById('page-loading');
+
+  if (!loader) return;
+
+  window.addEventListener('load', () => {
+    loader.classList.add('is-hidden');
+    window.setTimeout(() => loader.remove(), 350);
+  });
 }
 
-function getCurrentPage() {
-  const path = window.location.pathname;
-  return path.endsWith('article.php') ? 'article' : 'home';
+function initSearchForm() {
+  const searchForm = document.getElementById('search-form');
+  const searchInput = document.getElementById('search-input');
+
+  searchForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    filterArticles(searchInput?.value || '');
+  });
+
+  searchInput?.addEventListener('input', (event) => {
+    const value = event.target.value || '';
+
+    if (!value.trim()) {
+      hideSearchResults();
+    }
+  });
 }
 
 async function initPage() {
-  const isHomePage = document.getElementById('categories-list')
-    || document.getElementById('featured-list')
-    || document.getElementById('new-list')
-    || document.getElementById('recommendation-list');
+  const categoriesList = document.getElementById('categories-list');
 
-  if (isHomePage) {
+  if (categoriesList) {
     await loadHomePage();
+    initSearchForm();
   }
-
-  window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
-const searchForm = document.getElementById('search-form');
-searchForm?.addEventListener('submit', event => {
-  event.preventDefault();
-  const input = document.getElementById('search-input');
-  if (input) filterArticles(input.value);
-});
+function escapeHTML(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
 
-window.addEventListener('DOMContentLoaded', () => {
-  initPage();
+window.addEventListener('DOMContentLoaded', async () => {
   initTheme();
   initThemeToggle();
   initNavigation();
   initScrollEffects();
-  initReveal();
   initLoadingState();
+
+  await initPage();
+
+  initReveal();
 });

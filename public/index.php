@@ -268,6 +268,10 @@ $pageTitle = 'Trang chủ - SmartNews';
         ↑
     </button>
 
+    <script>
+    window.SMARTNEWS_BASE_URL = "<?= BASE_URL ?>";
+    </script>
+
     <script src="<?= asset('/js/news.js') ?>"></script>
 </body>
 </html>

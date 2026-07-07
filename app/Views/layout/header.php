@@ -46,11 +46,6 @@ $pageTitle = $pageTitle ?? APP_NAME;
                 </li>
 
                 <?php if (isLoggedIn()): ?>
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?= url('/dashboard.php') ?>">
-                            Dashboard
-                        </a>
-                    </li>
 
                     <li class="nav-item ms-lg-3">
                         <span class="small text-muted">

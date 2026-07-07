@@ -22,7 +22,7 @@ function url(string $path = ''): string
 
 /**
  * Tạo đường dẫn asset.
- * Ví dụ: asset('/css/news.css') => /SmartNews/public/assets/css/news.css
+ * Ví dụ: asset('/css/style.css') => /SmartNews/public/assets/css/style.css
  */
 function asset(string $path = ''): string
 {
@@ -39,6 +39,14 @@ function redirect(string $path): void
 }
 
 /**
+ * Gán flash message vào session.
+ */
+function setFlash(string $key, string $message): void
+{
+    $_SESSION[$key] = $message;
+}
+
+/**
  * Lấy và xóa flash message khỏi session.
  */
 function getFlash(string $key): ?string
@@ -51,4 +59,36 @@ function getFlash(string $key): ?string
     unset($_SESSION[$key]);
 
     return $message;
+}
+
+/**
+ * Hiển thị flash message bằng Bootstrap.
+ */
+function renderFlashMessages(): void
+{
+    $success = getFlash('flash_success');
+    $error = getFlash('flash_error');
+
+    if ($success) {
+        echo '<div class="alert alert-success">' . e($success) . '</div>';
+    }
+
+    if ($error) {
+        echo '<div class="alert alert-danger">' . e($error) . '</div>';
+    }
+}
+
+/**
+ * Hiển thị trạng thái bài viết.
+ */
+function postStatusBadge(string $status): string
+{
+    return match ($status) {
+        'draft' => '<span class="badge bg-secondary">Bản nháp</span>',
+        'pending' => '<span class="badge bg-warning text-dark">Chờ duyệt</span>',
+        'published' => '<span class="badge bg-success">Đã xuất bản</span>',
+        'rejected' => '<span class="badge bg-danger">Bị từ chối</span>',
+        'deleted' => '<span class="badge bg-dark">Đã xóa</span>',
+        default => '<span class="badge bg-light text-dark">Không rõ</span>',
+    };
 }
